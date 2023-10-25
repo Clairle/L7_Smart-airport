@@ -1,0 +1,72 @@
+/* 地图初始化 */
+html,
+body {
+  overflow: hidden;
+}
+#nav {
+  width: 100vw;
+  height: 146px;
+  background: url("../images/nav.png") no-repeat;
+  position: fixed;
+  top: -18px;
+  left: 0;
+  z-index: 1;
+  background-size: 100%;
+}
+* {
+  margin: 0;
+  padding: 0;
+}
+
+#map {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+.btn-groups {
+  display: flex;
+  color: #fff;
+  position: absolute;
+  left: 50%;
+  font-size: 8px !important;
+  bottom: 10px;
+  /* transform: translateX(-50%) rotate(180deg); */
+  z-index: 100;
+}
+
+.btn-groups .item {
+  margin-left: 20px;
+  text-align: center;
+}
+
+.btn-groups button {
+  margin-bottom: 4px;
+  font-size: 8px;
+  /* padding: 5px; */
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  outline: none;
+  color: #fff;
+  background: #53697670;
+  /* fallback for old browsers */
+  /* Chrome 10-25, Safari 5.1-6 */
+  box-shadow: 0 0 5px 3px #333;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 128, 255, 0.377),
+    rgba(0, 128, 255, 0.281)
+  );
+}
+
+.btn-groups button:hover {
+  cursor: pointer;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 128, 255, 0.6),
+    rgba(0, 128, 255, 0.281)
+  );
+}

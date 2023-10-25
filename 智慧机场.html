@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+      <meta charset="UTF-8">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>智慧航班-武汉</title>
+      <script src='https://unpkg.com/@antv/l7'></script>
+      <script src='https://lib.baomitu.com/jquery/3.6.3/jquery.min.js'></script>
+      <link rel="stylesheet" href="css/fly.css">
+      <link rel="stylesheet" href="https://at.alicdn.com/t/c/font_4072822_j5r3vfaxh8h.css">
+      <script src='https://lib.baomitu.com/jquery/3.6.3/jquery.min.js'></script>
+      <script src="./data/weather-icon.js"></script>
+      <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+      <!-- 引入组件库 -->
+      <link rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.css">
+      <script src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.js"></script>
+      <style>
+            .fly-alert {
+                  position: fixed;
+                  z-index: 1000;
+                  left: 50px;
+                  top: 90px;
+            }
+            /* .l7-top l7-right l7-column {
+                  top: 30
+            } */
+            .l7-control-container .l7-top .l7-control:not(.l7-control--hide) {
+                  margin-top: 30px;
+            }
+      </style>
+</head>
+
+<body>
+      <div class="fly-alert alert alert-warning alert-dismissible fade show" role="alert">
+            <strong>紧急通知!</strong>武汉飞行俄罗斯的航班因大雨延误
+      </div>
+      <div id="nav"></div>
+      <div class="btn-groups">
+            <div class="item" id="plan" onclick="flyTo()">
+                  <button class="toggle-btn">
+                        <i class="iconfont icon-icon-test"></i>
+                  </button>
+                  <p>飞行</p>
+            </div>
+            <div class="item">
+                  <button class="toggle-btn" onclick="controlEnd()">
+                        <i class="iconfont icon-supervision-full"></i>
+                  </button>
+                  <p>切换终点样式</p>
+            </div>
+
+      </div>
+      <div id="map">
+
+      </div>
+      <script>
+            var { Scene, GaodeMap } = L7;
+            /* 天河机场 */
+            let center = [114.216738, 30.770787];
+            let origin_zoom = 2;
+            let origin_center = [0, 40]
+            const scene = new Scene({
+                  id: 'map',
+                  map: new GaodeMap({
+                        style: 'dark', // 样式URL
+                        center: origin_center,
+                        zoom: origin_zoom,
+                        minZoom: 2,
+                        pitch: 30,
+                        token: '5b9ce6c809d8d2d8f7a0021985672baf'
+                  }),
+                  logoVisible: false,
+            });
+
+
+
+            scene.on("loaded", () => {
+                  /* 设置飞机图片 */
+                  scene.addImage(
+                        'plane',
+                        'https://gw.alipayobjects.com/zos/bmw-prod/0ca1668e-38c2-4010-8568-b57cb33839b9.svg'
+                  )
+
+                  /* 设置天气图片 */
+                  weather_icon.forEach(item => {
+                        scene.addImage(
+                              Number(item.type.split("-")[0]),
+                              item.url
+                        );
+                  })
+
+                  Promise.all([
+                        /* 国家边界 */
+                        $.ajax({
+                              url: "./data/world_country.json"
+                        }),
+                         /* 航班数据 */
+                        $.ajax({
+                              url: "./data/fly_path.json"
+                        }),
+                        /* 目的地数据 */
+                        $.ajax({
+                              url: './data/fly_end.json'
+                        })
+                  ]).then(([world, fly_path, fly_end]) => {
+                        /* 1、加载各个国家的边界数据 */
+                        const worldLayer = new L7.LineLayer({
+                              name: "world"
+                        })
+                        .source(world)
+                        .color('#41fc9d')
+                        .size(1)
+                        .style({
+                        opacity: 0.4,
+                        });
+                        scene.addLayer(worldLayer);
+                        /* 2、加载飞行轨迹数据 */
+                        const flyLineLayer = new L7.LineLayer({
+                              name: "飞行轨迹"
+                        })
+                        .source(fly_path)
+                        .color('#ff6b34')
+                        .shape('arc')
+                        .size(1)
+                        scene.addLayer(flyLineLayer);
+                        /* 3、飞机 */
+                        const planeLineLayer = new L7.LineLayer({
+                              blend: 'normal',
+                              name: "飞机"
+                        })
+                        .source(fly_path)
+                        .color('#ff6b34')
+                        .texture('plane')
+                        .shape('arc')
+                        .size(15)
+                        .animate({
+                        duration: 1,
+                        interval: 0.2,
+                        trailLength: 0.05
+                        })
+                        .style({
+                        textureBlend: 'replace',
+                        lineTexture: true, // 开启线的贴图功能
+                        iconStep: 10, // 设置贴图纹理的间距
+                        });
+                        scene.addLayer(planeLineLayer)
+                        /* 4、终点数据 */
+                        const endLayer = new L7.PointLayer({
+                              name: "终点"
+                        })
+                        .source(fly_end)
+                        .shape('area', [
+                              'cylinder',
+                              'triangleColumn',
+                              'hexagonColumn',
+                              'squareColumn'
+                        ])
+                        .color('area', ['#739DFF', '#61FCBF', '#FFDE74', '#FF896F'])
+                        .animate(true)
+                        .size([4, 100])
+                        scene.addLayer(endLayer)
+                        /*  设置终点天气 */
+                        const weatherLayer = new L7.PointLayer({
+                              name: "天气图层"
+                        })
+                        .source(fly_end)
+                        .shape('weather', function (w) {
+                              return w;
+                        })
+                        .size(15)
+                        .style({
+                              offsets: [0, 30]
+                        })
+                        scene.addLayer(weatherLayer);
+                        /* 4、风场 */
+                        const windLayer = new L7.WindLayer({
+                              name: "风场"
+                        })
+                        .source(
+                              'https://gw.alipayobjects.com/mdn/rms_23a451/afts/img/A*wcU8S5xMEDYAAAAAAAAAAAAAARQnAQ',
+                              {
+                                    parser: {
+                                    type: 'image',
+                                    extent: [-180, -85, 180, 85]
+                                    }
+                              }
+                        )
+                        .animate(true)
+                        .style({
+                              numParticles: 35535,
+                              fadeOpacity: 0.9,
+                              sizeScale: 1.3,
+                              rampColors: {
+                              0.0: '#3288bd',
+                              0.1: '#66c2a5',
+                              0.2: '#abdda4',
+                              0.3: '#e6f598',
+                              0.4: '#fee08b',
+                              0.5: '#fdae61',
+                              0.6: '#f46d43',
+                              1.0: '#d53e4f'
+                              }
+                        })
+                        scene.addLayer(windLayer)
+                        /* 6、地图移动触发 */
+                        scene.on('mapmove', () => {
+                              var layer = scene.getLayerByName("风场")
+                              var res = layer.isVisible()
+                              let zoom = scene.getZoom();
+                              if (zoom > 3) {
+                                    layer.hide();
+                              }
+                        })
+                        /* 7、下雨点 */
+                        let rain = 'https://gw.alipayobjects.com/mdn/rms_816329/afts/img/A*w2SFSZJp4nIAAAAAAAAAAAAAARQnAQ'
+                        let snow = 'https://gw.alipayobjects.com/mdn/rms_816329/afts/img/A*zLQwQKBSagYAAAAAAAAAAAAAARQnAQ'
+                        const layer = new L7.GeometryLayer({
+                              name: "暴雨点"
+                        })
+                        .shape('sprite')
+                        .size(10)
+                        .style({
+                              opacity: 0.3,
+                              mapTexture: rain, // rain
+                              center: [105.318756, 61.52401],
+                              spriteCount: 12000,
+                              spriteRadius: 10,
+                              spriteTop: 2500000,
+                              spriteUpdate: 20000,
+                              spriteScale: 0.6
+                        });
+                        scene.addLayer(layer)
+                        /* 5、图层显示/隐藏控制器 */
+                        const layerSwitch = new L7.LayerSwitch({
+                              layers: scene.getLayers()
+                        })
+                        scene.addControl(layerSwitch)
+                  })
+            })
+
+
+            let isFly = false
+            function flyTo() {
+                  isFly = !isFly
+                  if (isFly) {
+                        scene.setZoomAndCenter(14, center)
+                  }else {
+                        scene.setZoomAndCenter(origin_zoom, origin_center)
+                  }
+            }
+            function controlEnd() {
+                  let layer = scene.getLayerByName("终点");
+                  layer.shape("circle").size(30).color("#ffed11")
+            }
+
+            //地图主题控件
+            scene.on('loaded',() => {
+                  const mapTheme = new L7.MapTheme({})
+                  scene.addControl(mapTheme)
+            })
+      </script>
+</body>
+
+</html>
